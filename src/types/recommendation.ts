@@ -16,7 +16,7 @@ export interface Food {
     soup: boolean
     solo: boolean
     tags: string[]
-    time: string[]
+    time: TimeType[]
     image: string
 }
 
