@@ -10,18 +10,13 @@ export interface Question<T = any> {
     options: QuestionOption<T>[]
 }
 
-export interface Answers {
-    spicy?: number
-    soup?: boolean | null
-    solo?: boolean
-}
-
 export interface Food {
     name: string
     spicy: number
     soup: boolean
     solo: boolean
     tags: string[]
+    time: string[]
     image: string
 }
 
@@ -34,4 +29,13 @@ export interface RankedFood {
     food: Food
     score: number
     reasons: RecommendationReason[]
+}
+
+export type TimeSlot = 'breakfast' | 'lunch' | 'dinner' | 'late'
+
+export interface Answers {
+    spicy?: number
+    soup?: boolean | null
+    solo?: boolean
+    time?: TimeSlot
 }

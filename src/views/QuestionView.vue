@@ -2,10 +2,13 @@
   <div class="question-view">
     <ProgressBar :current="step" :total="questions.length" />
 
-    <QuestionCard
-        :question="questions[step]"
-        @select="handleSelect"
-    />
+    <transition name="question" mode="out-in">
+      <QuestionCard
+          :key="step"
+          :question="questions[step]"
+          @select="handleSelect"
+      />
+    </transition>
 
     <button
         v-if="step > 0"
@@ -55,4 +58,19 @@ const handleSelect = (value: any) => {
   background: #f1f1f1;
   cursor: pointer;
 }
+.question-enter-active,
+.question-leave-active {
+  transition: all 0.3s ease;
+}
+
+.question-enter-from {
+  opacity: 0;
+  transform: translateY(20px);
+}
+
+.question-leave-to {
+  opacity: 0;
+  transform: translateY(-20px);
+}
+
 </style>

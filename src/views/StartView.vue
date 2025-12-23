@@ -13,12 +13,14 @@
 import { useRouter } from 'vue-router'
 import PrimaryButton from '@/components/common/PrimaryButton.vue'
 import { useRecommendationStore } from '@/stores/recommendationStore'
+import { getCurrentTimeSlot } from '@/utils/time'
 
 const router = useRouter()
 const store = useRecommendationStore()
 
 const start = () => {
   store.reset()
+  store.answers.time = getCurrentTimeSlot()
   router.push('/question')
 }
 </script>
