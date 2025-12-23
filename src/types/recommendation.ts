@@ -24,3 +24,14 @@ export interface Food {
     tags: string[]
     image: string
 }
+
+export interface RecommendationReason {
+    text: string
+    score: number
+}
+
+export interface RankedFood {
+    food: Food
+    score: number
+    reasons: RecommendationReason[]
+}
