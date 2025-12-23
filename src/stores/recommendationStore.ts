@@ -4,47 +4,44 @@ import { questions } from '@/data/questions'
 import type {
     Answers,
     RankedFood,
-    RecommendationReason
+    RecommendationReason,
+    TimeSlot
 } from '@/types/recommendation'
 
 /**
  * 질문별 가중치
+ * → "중요한 질문일수록 결과에 더 크게 반영"
  */
 const QUESTION_WEIGHT: Record<keyof Answers, number> = {
-    spicy: 2,
-    soup: 1.5,
-    solo: 1,
-    heavy: 1,
-    rice: 1,
-    greasy: 1,
+    spicy: 2.5,
+    soup: 2,
+    solo: 1.5,
+    heavy: 1.5,
+    rice: 1.2,
+    greasy: 1.2,
     fast: 1,
-    meat: 1,
-    healthy: 1.2,
-    adventurous: 1.2
+    meat: 1.5,
+    healthy: 2,
+    adventurous: 1.3
 }
 
 /**
  * 현재 시간대 계산
  */
-const getCurrentTimeType = (): 'breakfast' | 'lunch' | 'dinner' => {
+const getCurrentTimeSlot = (): TimeSlot => {
     const hour = new Date().getHours()
-    if (hour < 11) return 'breakfast'
-    if (hour < 17) return 'lunch'
-    return 'dinner'
+    if (hour < 10) return 'breakfast'
+    if (hour < 15) return 'lunch'
+    if (hour < 21) return 'dinner'
+    return 'late'
 }
 
 /**
- * 점수 기반 reason push 헬퍼
+ * spicy 점수 계산 (거리 기반)
  */
-const pushReason = (
-    reasons: RecommendationReason[],
-    text: string,
-    score: number,
-    minScore = 0.3
-) => {
-    if (score >= minScore) {
-        reasons.push({ text, score })
-    }
+const calcSpicyScore = (foodSpicy: number, answer: number, weight: number) => {
+    const diff = Math.abs(foodSpicy - answer)
+    return Math.max(0, (2 - diff)) * weight
 }
 
 export const useRecommendationStore = defineStore('recommendation', {
@@ -66,13 +63,13 @@ export const useRecommendationStore = defineStore('recommendation', {
 
         goBack() {
             if (this.currentStep === 0) return
-            const key = questions[this.currentStep - 1].key
-            delete this.answers[key]
+            const prevKey = questions[this.currentStep - 1].key
+            delete this.answers[prevKey]
             this.currentStep--
         },
 
         calculateResults() {
-            const currentTime = getCurrentTimeType()
+            const currentTime = getCurrentTimeSlot()
 
             const ranked: RankedFood[] = foods
                 // ⏰ 시간대 필터링
@@ -81,98 +78,67 @@ export const useRecommendationStore = defineStore('recommendation', {
                     let score = 0
                     const reasons: RecommendationReason[] = []
 
-                    /* 🌶 매운맛 */
-                    if (this.answers.spicy !== undefined) {
-                        const diff = Math.abs(food.spicy - this.answers.spicy)
-                        const s = (2 - diff) * QUESTION_WEIGHT.spicy
-                        score += s
+                    // -------------------------
+                    // 질문별 점수 계산
+                    // -------------------------
+                    for (const [key, answer] of Object.entries(this.answers)) {
+                        if (answer === undefined || answer === null) continue
 
-                        if (diff === 0) {
-                            pushReason(reasons, '매운맛 취향이 완벽하게 맞아요 🌶️', s)
-                        } else if (diff === 1) {
-                            pushReason(reasons, '맵기 정도가 크게 부담 없어요', s)
-                        } else {
-                            pushReason(reasons, '자극적이지 않아서 편하게 먹기 좋아요', s)
-                        }
-                    }
+                        const weight = QUESTION_WEIGHT[key as keyof Answers]
 
-                    /* 🍲 국물 */
-                    if (this.answers.soup !== null && this.answers.soup !== undefined) {
-                        if (food.soup === this.answers.soup) {
-                            const s = 2 * QUESTION_WEIGHT.soup
+                        // 🌶 매운맛 (숫자형)
+                        if (key === 'spicy') {
+                            const s = calcSpicyScore(food.spicy, answer as number, weight)
                             score += s
-                            pushReason(
-                                reasons,
-                                this.answers.soup
-                                    ? '따뜻한 국물이 생각나는 타이밍이에요 🍲'
-                                    : '국물 없는 메뉴라 깔끔해요',
-                                s
-                            )
-                        }
-                    }
-
-                    /* 🍽 혼밥 */
-                    if (this.answers.solo !== undefined && food.solo === this.answers.solo) {
-                        const s = 1 * QUESTION_WEIGHT.solo
-                        score += s
-                        pushReason(
-                            reasons,
-                            this.answers.solo
-                                ? '혼자서도 부담 없이 먹기 좋아요'
-                                : '여럿이 함께 먹기 좋아요',
-                            s
-                        )
-                    }
-
-                    /* 🧠 익숙함 vs 도전 */
-                    if (this.answers.adventurous !== undefined) {
-                        const uniqueTags = food.tags.filter(
-                            t => !['한식', '국물', '밥'].includes(t)
-                        )
-
-                        const adventurousScore = this.answers.adventurous
-                            ? uniqueTags.length * 0.4
-                            : -uniqueTags.length * 0.2
-
-                        score += adventurousScore
-
-                        if (this.answers.adventurous && uniqueTags.length > 0) {
-                            pushReason(
-                                reasons,
-                                `평소와 다른 ${uniqueTags.join(', ')} 느낌을 즐길 수 있어요`,
-                                adventurousScore
-                            )
+                            if (s > 0) {
+                                reasons.push({
+                                    text: '매운맛 취향이 잘 맞아요',
+                                    score: s
+                                })
+                            }
+                            continue
                         }
 
-                        if (!this.answers.adventurous) {
-                            pushReason(
-                                reasons,
-                                '익숙한 메뉴라 실패 확률이 낮아요',
-                                Math.abs(adventurousScore)
-                            )
-                        }
-                    }
-
-                    /* 🥗 건강 */
-                    if (this.answers.healthy) {
-                        const healthyTags = food.tags.filter(t =>
-                            ['건강', '가벼움', '저칼로리'].includes(t)
-                        )
-
-                        if (healthyTags.length > 0) {
-                            const s = 1.5
+                        // 🧠 도전 성향 (태그 개수 기반)
+                        if (key === 'adventurous') {
+                            const tagScore = food.tags.length * 0.3 * weight
+                            const s = (answer ? tagScore : -tagScore)
                             score += s
-                            pushReason(
-                                reasons,
-                                `오늘은 ${healthyTags.join(', ')}한 메뉴가 잘 어울려요`,
-                                s
-                            )
+                            if (s > 0) {
+                                reasons.push({
+                                    text: '새로운 메뉴에 도전하기 좋아요',
+                                    score: s
+                                })
+                            }
+                            continue
+                        }
+
+                        // ✅ boolean 질문들
+                        const foodValue = (food as any)[key]
+                        if (typeof foodValue === 'boolean') {
+                            const s = foodValue === answer ? weight : -weight * 0.6
+                            score += s
+
+                            if (s > 0) {
+                                reasons.push({
+                                    text: getReasonText(key as keyof Answers),
+                                    score: s
+                                })
+                            }
                         }
                     }
 
-                    /* 🎲 랜덤성 (다양성 확보) */
-                    const randomBonus = Math.random() * 0.5
-                    score += randomBonus
+                    // 🏷 태그 보조 점수 (과도하지 않게)
+                    if (this.answers.healthy && food.tags.includes('건강')) {
+                        score += 1
+                        reasons.push({
+                            text: '건강한 메뉴예요',
+                            score: 1
+                        })
+                    }
+
+                    // 🎲 랜덤성 (다양성 확보용)
+                    score += Math.random() * 0.8
 
                     return { food, score, reasons }
                 })
@@ -189,3 +155,29 @@ export const useRecommendationStore = defineStore('recommendation', {
         }
     }
 })
+
+/**
+ * 질문 key → 이유 문구 매핑
+ */
+function getReasonText(key: keyof Answers): string {
+    switch (key) {
+        case 'soup':
+            return '국물 있는 음식을 원하셨어요'
+        case 'solo':
+            return '혼자 먹기 좋은 메뉴예요'
+        case 'heavy':
+            return '든든하게 먹기 좋아요'
+        case 'rice':
+            return '밥과 잘 어울려요'
+        case 'greasy':
+            return '기름진 음식 취향이에요'
+        case 'fast':
+            return '빠르게 먹기 좋아요'
+        case 'meat':
+            return '고기 메뉴를 선호하셨어요'
+        case 'healthy':
+            return '오늘은 건강한 선택이에요'
+        default:
+            return '취향에 잘 맞아요'
+    }
+}
