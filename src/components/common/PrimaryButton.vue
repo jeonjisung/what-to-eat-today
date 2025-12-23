@@ -13,12 +13,17 @@
   font-size: 16px;
   border-radius: 14px;
   border: none;
-  background: #42b883;
+  background: #3cb371; /* MediumSeaGreen */
   color: white;
   cursor: pointer;
+  transition: background 0.2s, transform 0.1s;
 }
 
 .primary-btn:hover {
-  background: #369f6b;
+  background: #2e9f5f;
+}
+
+.primary-btn:active {
+  transform: scale(0.97);
 }
 </style>
