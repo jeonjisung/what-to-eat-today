@@ -37,5 +37,12 @@ export interface Answers {
     spicy?: number
     soup?: boolean | null
     solo?: boolean
-    time?: TimeSlot
+    heavy?: boolean
+    rice?: boolean
+    greasy?: boolean
+    fast?: boolean
+    meat?: boolean
+    healthy?: boolean
+    adventurous?: boolean
 }
+
